@@ -1,5 +1,6 @@
 from selfdrive.car.honda.values import HondaFlags, HONDA_BOSCH, CAR, CarControllerParams
 from selfdrive.config import Conversions as CV
+from common.params import Params
 
 # CAN bus layout with relay
 # 0 = ACC-CAN - radar side
@@ -121,7 +122,7 @@ def create_ui_commands(packer, CP, pcm_speed, hud, is_metric, idx, stock_hud):
       acc_hud_values = {
         'PCM_SPEED': pcm_speed * CV.MS_TO_KPH,
         'PCM_GAS': hud.pcm_accel,
-        'CRUISE_SPEED': 252 if Params().get_bool('StoppedHUD') and standstill != 0 and hud.car != 0 else 255,
+        'CRUISE_SPEED': hud.v_cruise,
         'ENABLE_MINI_CAR': 1,
         'HUD_LEAD': hud.car,
         'HUD_DISTANCE_3': 1 if hud.car != 0 else 0,
