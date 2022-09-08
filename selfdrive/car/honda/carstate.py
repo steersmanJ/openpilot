@@ -178,10 +178,17 @@ class CarState(CarStateBase):
     self.steer_status_values = defaultdict(lambda: "UNKNOWN", can_define.dv["STEER_STATUS"]["STEER_STATUS"])
     self.prev_cruise_enabled = False if Params().get_bool('ACCdoesLKAS') else True
 
+    
+    self.user_gas, self.user_gas_pressed = 0., 0 # add steers
     self.brake_switch_prev = 0
     self.brake_switch_prev_ts = 0
     self.cruise_setting = 0
     self.v_cruise_pcm_prev = 0
+    self.pcm_acc_active = False # add steers
+    self.trMode = 2
+    self.read_distance_lines_prev = 4
+    self.lead_distance = 255
+    self.engineRPM = 0
     
   def update(self, cp, cp_cam, cp_body):
     ret = car.CarState.new_message()
@@ -192,7 +199,7 @@ class CarState(CarStateBase):
 
     # update prevs, update must run once per loop
     self.prev_cruise_buttons = self.cruise_buttons
-    self.prev_cruise_setting = self.cruise_setting
+    self.prev_lead_distance = self.lead_distance # changed steers
 
     # ******************* parse out can *******************
     # TODO: find wheels moving bit in dbc
@@ -293,7 +300,18 @@ class CarState(CarStateBase):
       self.brake_switch_prev_ts = cp.ts["POWERTRAIN_DATA"]["BRAKE_SWITCH"]
 
     ret.brake = cp.vl["VSA_STATUS"]["USER_BRAKE"]
-    ret.cruiseState.enabled = cp.vl["POWERTRAIN_DATA"]["ACC_STATUS"] != 0
+
+    # added steers
+    if not self.pcm_acc_active and cp.vl["POWERTRAIN_DATA"]['ACC_STATUS'] != 0:
+      self.pcm_acc_active = True
+    if not ret.cruiseState.available:
+      self.pcm_acc_active = False
+    if self.pcm_acc_active:
+      ret.cruiseState.enabled = ret.cruiseState.available
+    else:
+      ret.cruiseState.enabled = cp.vl["POWERTRAIN_DATA"]['ACC_STATUS'] != 0
+
+    
     main_on = cp.vl[self.main_on_sig_msg]["MAIN_ON"]
     ret.cruiseState.available = bool(main_on)
 
@@ -301,7 +319,20 @@ class CarState(CarStateBase):
     if self.CP.carFingerprint in (CAR.PILOT, CAR.PILOT_2019, CAR.PASSPORT, CAR.RIDGELINE):
       if ret.brake > 0.05:
         ret.brakePressed = True
+        
+    # When user presses distance button on steering wheel. Must be above LKAS button code, cannot be below! 
+    # added steers
+    if self.cruise_setting == 3:
+      if cp.vl["SCM_BUTTONS"]["CRUISE_SETTING"] == 0:
+        self.trMode = (self.trMode - 1 ) % 4
 
+    self.prev_cruise_setting = self.cruise_setting
+    self.cruise_setting = cp.vl["SCM_BUTTONS"]['CRUISE_SETTING']
+    self.read_distance_lines = self.trMode + 1
+    if self.read_distance_lines != self.read_distance_lines_prev:
+      self.read_distance_lines_prev = self.read_distance_lines
+      
+      
     if bool(main_on):
       if not self.CP.pcmCruise:
         if self.prev_cruise_buttons == 3: #set
