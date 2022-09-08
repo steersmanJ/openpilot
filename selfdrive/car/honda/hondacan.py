@@ -160,14 +160,13 @@ def create_ui_commands(packer, pcm_speed, hud, enabled, stopping, car_fingerprin
       }
     else:
       acc_hud_values = {
-        'CRUISE_SPEED': 252 if Params().get_bool('StoppedHUD') and standstill != 0 and hud.car != 0 else hud.v_cruise,
         'PCM_SPEED': pcm_speed * CV.MS_TO_KPH,
         'PCM_GAS': hud.pcm_accel,
+        'CRUISE_SPEED': hud.v_cruise,
         'ENABLE_MINI_CAR': 1,
         'HUD_LEAD': hud.car,
-        'HUD_DISTANCE_3': 1 if hud.car != 0 else 0,
-        'HUD_DISTANCE': hud.dist_lines,    # max distance setting on display
-        'IMPERIAL_UNIT': speed_units,
+        'HUD_DISTANCE': 1,    # max distance setting on display
+        'IMPERIAL_UNIT': int(not is_metric),
         'SET_ME_X01_2': 1,
         'SET_ME_X01': 1,
         "FCM_OFF": stock_hud["FCM_OFF"],
