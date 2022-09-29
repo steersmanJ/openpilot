@@ -6,7 +6,7 @@ from opendbc.can.can_define import CANDefine
 from opendbc.can.parser import CANParser
 from selfdrive.config import Conversions as CV
 from selfdrive.car.interfaces import CarStateBase
-from selfdrive.car.honda.values import CAR, DBC, STEER_THRESHOLD, HONDA_BOSCH, HONDA_NIDEC_ALT_SCM_MESSAGES, HONDA_BOSCH_ALT_BRAKE_SIGNAL
+from selfdrive.car.honda.values import CAR, DBC, STEER_THRESHOLD, HONDA_BOSCH, HONDA_NIDEC_ALT_SCM_MESSAGES, HONDA_BOSCH_ALT_BRAKE_SIGNAL, CruiseSetting
 
 TransmissionType = car.CarParams.TransmissionType
 
@@ -183,6 +183,11 @@ class CarState(CarStateBase):
     self.cruise_setting = 0
     self.v_cruise_pcm_prev = 0
     
+    # Follow distance adjustment
+    self.trMode = 0
+    self.read_distance_lines_prev = 4
+    self.lead_distance = 255
+    
   def update(self, cp, cp_cam, cp_body):
     ret = car.CarState.new_message()
 
@@ -193,7 +198,8 @@ class CarState(CarStateBase):
     # update prevs, update must run once per loop
     self.prev_cruise_buttons = self.cruise_buttons
     self.prev_cruise_setting = self.cruise_setting
-
+    self.prev_lead_distance = self.lead_distance
+    
     # ******************* parse out can *******************
     # TODO: find wheels moving bit in dbc
     if self.CP.carFingerprint in (CAR.ACCORD, CAR.ACCORDH, CAR.CIVIC_BOSCH, CAR.CIVIC_BOSCH_DIESEL, CAR.CRV_HYBRID, CAR.INSIGHT, CAR.ACURA_RDX_3G, CAR.HONDA_E):
@@ -301,9 +307,20 @@ class CarState(CarStateBase):
     if self.CP.carFingerprint in (CAR.PILOT, CAR.PILOT_2019, CAR.PASSPORT, CAR.RIDGELINE):
       if ret.brake > 0.05:
         ret.brakePressed = True
+        
+    # When user presses distance button on steering wheel. Must be above LKAS button code, cannot be below! (credit: @aragon7777)
+    if self.cruise_setting == CruiseSetting.DISTANCE_ADJ:
+      if cp.vl["SCM_BUTTONS"]["CRUISE_SETTING"] == 0:
+        self.trMode = (self.trMode + 1 ) % 4
 
-    if bool(main_on):
-      if not self.CP.pcmCruise:
+    self.prev_cruise_setting = self.cruise_setting
+    self.cruise_setting = cp.vl["SCM_BUTTONS"]['CRUISE_SETTING']
+    self.read_distance_lines = self.trMode + 1
+    if self.read_distance_lines != self.read_distance_lines_prev:
+      self.read_distance_lines_prev = self.read_distance_lines
+
+    if bool(main_on): #if ret.cruiseState.available:
+      if not self.CP.pcmCruise: #or not self.CP.pcmCruiseSpeed:
         if self.prev_cruise_buttons == 3: #set
           if self.cruise_buttons != 3:            
             self.accEnabled = True
