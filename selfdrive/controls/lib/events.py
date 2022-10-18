@@ -810,7 +810,7 @@ EVENTS: Dict[int, Dict[str, Union[Alert, AlertCallbackType]]] = {
       "CAN Error: Check Connections",
       "",
       AlertStatus.normal, AlertSize.small,
-      Priority.LOW, VisualAlert.none, AudibleAlert.none, 1., creation_delay=1.),
+      Priority.LOW, VisualAlert.none, AudibleAlert.none, .1, creation_delay=.1),
     ET.NO_ENTRY: NoEntryAlert("CAN Error: Check Connections"),
   },
 
